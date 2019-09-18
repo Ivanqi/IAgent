@@ -23,18 +23,37 @@ use Swoft\WebSocket\Server\WebSocketServer;
 use Swoft\Server\SwooleEvent;
 use Swoft\Db\Database;
 use Swoft\Redis\RedisDb;
+use App\Listener\Test\WorkerStartListener;
 
 return [
-    'noticeHandler'      => [
-        'logFile' => '@runtime/logs/notice-%d{Y-m-d-H}.log',
-    ],
-    'applicationHandler' => [
-        'logFile' => '@runtime/logs/error-%d{Y-m-d}.log',
+    'config' => [
+        'path' => __DIR__ . '/../config'
     ],
     'logger'            => [
-        'flushRequest' => true,
-        'enable'       => true,
-        'json'         => false,
+        'flushInterval' => 10,
+        'flushRequest' => true,    // flushRequest 是否每个请求结束都输出日志，默认false
+        'enable'       => true,    // enable 是否开启日志，默认false
+        'json'         => false,    // json 是否JSON格式输出，默认false
+        'handler'      => [
+            'appliaction' => \bean('applicationHandler'),
+            'notice'      => \bean('noticeHandler')
+        ]
+    ],
+    'lineFormatter' => [
+        'format' => '%datetime% [%level_name%] [%channel%] [%event%] [tid:%tid%] [cid:%cid%] [traceid:%traceid%] [spanid:%spanid%] [parentid:%parentid%] %messages%',
+        'dateFormat' => 'Y-m-d H:i:s',
+    ],
+    'noticeHandler'      => [
+        'class' => Swoft\Log\Handler\FileHandler::class,
+        'logFile' => '@runtime/logs/notice.log',
+        'formatter' => \bean('lineFormatter'),
+        'levels' => 'info,debug,trace'
+    ],
+    'applicationHandler' => [
+        'class' => Swoft\Log\Handler\FileHandler::class,
+        'logFile' => '@runtime/logs/error.log',
+        'formatter' => \bean('lineFormatter'),
+        'levels' => 'error, warning'
     ],
     'httpServer'        => [
         'class'    => HttpServer::class,
@@ -106,7 +125,7 @@ return [
         'port'     => 6379,
         'database' => 0,
         'option'   => [
-            'prefix' => 'swoft:'
+            'prefix' => 'iagent:'
         ]
     ],
     'user'              => [
@@ -139,17 +158,27 @@ return [
         // 'debug'   => env('SWOFT_DEBUG', 0),
         /* @see WebSocketServer::$setting */
         'setting' => [
-            'log_file' => alias('@runtime/swoole.log'),
+            'log_file' => alias('@runtime/swoole_ws.log'),
         ],
     ],
     'tcpServer'         => [
-        'port'  => 18309,
-        'debug' => 1,
+        // 'class' => TcpServer::class,
+        'port'  => env('TCP_PORT', 18309),
+        'debug' => env('SWOFT_DEBUG', 0),
+        'on' => [
+            // SwooleEvent::TASK   => bean(TaskListener::class),  
+            // SwooleEvent::FINISH => bean(FinishListener::class)
+        ],
+        'setting' => [
+            'log_file' => alias('@runtime/swoole_tcp.log'),
+            // 'task_worker_num' => 1,
+            // 'task_enable_coroutine' => true
+        ]
     ],
     /** @see \Swoft\Tcp\Protocol */
     'tcpServerProtocol' => [
         // 'type'            => \Swoft\Tcp\Packer\JsonPacker::TYPE,
-        'type' => \Swoft\Tcp\Packer\SimpleTokenPacker::TYPE,
+        'type' => \Swoft\Tcp\Packer\JsonPacker::TYPE,
         // 'openLengthCheck' => true,
     ],
     'cliRouter'         => [
