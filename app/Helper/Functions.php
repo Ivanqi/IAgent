@@ -20,14 +20,12 @@ function user_func(): string
  * @param string $msg 返回信息
  * @param mixed $data 返回的数据
  */
-function return_failed($response, string $msg = '', $data = null): void
+function return_failed($response, string $msg = '', $data = ''): void
 {
     $errorMsg = empty($msg) ? 'Failed' : $msg;
     $response->setCode(TCP_ERROR);
     $response->setMsg($errorMsg);
-    if (!is_null($data)) {
-        $response->setData($data);
-    }
+    $response->setData($data);
 }
 
 /**
@@ -35,12 +33,10 @@ function return_failed($response, string $msg = '', $data = null): void
  * @param string $msg 返回信息
  * @param mixed $data 返回的数据
  */
-function return_success($response, string $msg = '', $data = null): void
+function return_success($response, string $msg = '', $data = ''): void
 {
     $errorMsg = empty($msg) ? 'Success' : $msg;
     $response->setCode(TCP_SUCCESS);
     $response->setMsg($errorMsg);
-    if (!is_null($data)) {
-        $response->setData($data);
-    }
+    $response->setData($data);
 }

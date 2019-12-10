@@ -18,6 +18,7 @@ use Swoft\Tcp\Server\Response;
 use function strrev;
 use Swoft\Log\Helper\Log;
 use Swoft\Redis\Redis;
+use Swoft\Log\Helper\CLog;
 
 /**
  * Class ReceiveController
@@ -26,7 +27,11 @@ use Swoft\Redis\Redis;
  */
 class ReceiveController
 {
-
+    private static $queueName;
+    public function __construct()
+    {
+        self::$queueName = config('logjob.queue_name');
+    }
     /**
      * @TcpMapping("receive", root=true)
      * @param Request  $request
@@ -39,7 +44,7 @@ class ReceiveController
         if (!$result['ret']) {
             \return_failed($response, '校验失败，非法数据');
         } else {
-            Redis::lPush(config('complaintjob.queue_name'), json_encode($data)); 
+            Redis::lPush(self::$queueName, json_encode($data)); 
             \return_success($response);
         }
     }
