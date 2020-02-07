@@ -33,7 +33,7 @@ class Application extends SwoftApplication
             'name'    => 'iagent',
             'enable'  => true,
             'output'  => true,
-            'levels'  => 'info, error',
+            'levels'  => 'error',
             'logFile' => ''
         ];
     }

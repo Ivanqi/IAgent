@@ -79,15 +79,13 @@ class LogProcess implements ProcessInterface
                     throw new TcpClientException('数据发送失败');
                 }
                 $msg = self::$client->recv(1024);
-                CLog::info("msg-" . json_encode($msg, JSON_UNESCAPED_UNICODE));
                 if ($msg['code'] == self::$successTag) {
                     Redis::lrem(self::$faileQueueName, $logData);
                 } else {
                     CLog::error($msg['msg']);
-                    Log::error($msg['msg']);
                 }
             } catch(\TcpClientException $e) {
-                Log::error("无法发送数据:". $e->getMessage());
+                CLog::error("无法发送数据:". $e->getMessage());
             }
         }
     }
