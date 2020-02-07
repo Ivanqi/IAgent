@@ -73,8 +73,7 @@ class LogProcess implements ProcessInterface
                 if (!self::$client->connect(self::$receiverIp, (int) self::$receiverPort)) {
                    throw new TcpClientException('连接失败');
                 }
-                $logData = json_decode($logData, true);
-                $ret = self::$client->send($logData);
+                $ret = self::$client->send($this->dataHandle($logData));
                 if (!$ret) {
                     throw new TcpClientException('数据发送失败');
                 }
@@ -88,5 +87,19 @@ class LogProcess implements ProcessInterface
                 CLog::error("无法发送数据:". $e->getMessage());
             }
         }
+    }
+
+    private function dataHandle(string $data): array
+    {
+        $data = json_decode($data, true);
+        if (isset($data['sign'])) {
+            unset($data['sign']);
+        }
+
+        if (isset($data['time'])) {
+            unset($data['time']);
+        }
+
+        return $data;
     }
 }
