@@ -11,11 +11,14 @@
 namespace App\Process;
 
 use Swoft\Log\Helper\CLog;
+use Swoft\Log\Helper\Log;
 use Swoft\Process\Annotation\Mapping\Process;
 use Swoft\Process\Contract\ProcessInterface;
 use Swoole\Coroutine;
 use Swoole\Process\Pool;
 use Swoft\Redis\Redis;
+use LogSdk\TcpClient;
+use LogSdk\Exception\TcpClientException;
 
 /**
  * Class LogProcess
@@ -29,12 +32,21 @@ class LogProcess implements ProcessInterface
     private static $queueName;
     private static $faileQueueName;
     private static $maxTimeout;
+    private static $client;
+    private static $receiverKey;
+    private static $receiverIp;
+    private static $receiverPort;
+    private static $errorTag = 1;
+    private static $successTag = 0;
 
     public function __construct()
     {
         self::$queueName = config('logjob.queue_name');
         self::$faileQueueName = config('logjob.faile_queue_name');
         self::$maxTimeout = config('logjob.queue_max_timeout');
+        self::$receiverKey = config('tcp.receiver_key');
+        self::$receiverIp = config('tcp.receiver_ip');
+        self::$receiverPort = config('tcp.receiver_port');
     }
     /**
      * @param Pool $pool
@@ -43,10 +55,8 @@ class LogProcess implements ProcessInterface
     public function run(Pool $pool, int $workerId): void
     { 
         while (true) {
-
             $this->logHandle();
-
-            usleep(100);
+            Coroutine::sleep(0.1);
         }
     }
 
@@ -56,7 +66,29 @@ class LogProcess implements ProcessInterface
         if ($logData) {
             CLog::info('logData- '. $logData);
             // 接入LogSDK,把数据发往ICollector
-            Redis::lrem(self::$faileQueueName, $logData);
+            try {
+                if (self::$client == NULL) {
+                    self::$client = new TcpClient(self::$receiverKey);
+                }
+                if (!self::$client->connect(self::$receiverIp, (int) self::$receiverPort)) {
+                   throw new TcpClientException('连接失败');
+                }
+                $logData = json_decode($logData, true);
+                $ret = self::$client->send($logData);
+                if (!$ret) {
+                    throw new TcpClientException('数据发送失败');
+                }
+                $msg = self::$client->recv(1024);
+                CLog::info("msg-" . json_encode($msg, JSON_UNESCAPED_UNICODE));
+                if ($msg['code'] == self::$successTag) {
+                    Redis::lrem(self::$faileQueueName, $logData);
+                } else {
+                    CLog::error($msg['msg']);
+                    Log::error($msg['msg']);
+                }
+            } catch(\TcpClientException $e) {
+                Log::error("无法发送数据:". $e->getMessage());
+            }
         }
     }
 }

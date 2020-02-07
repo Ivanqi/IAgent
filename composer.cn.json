@@ -14,21 +14,21 @@
     "ext-redis": "*",
     "ext-json": "*",
     "ext-mbstring": "*",
-    "swoft/db": "~2.0.0",
-    "swoft/i18n": "~2.0.0",
-    "swoft/view": "~2.0.0",
-    "swoft/task": "~2.0.0",
-    "swoft/redis": "~2.0.0",
-    "swoft/framework": "~2.0.0",
-    "swoft/http-server": "~2.0.0",
-    "swoft/rpc-client": "~2.0.0",
-    "swoft/rpc-server": "~2.0.0",
-    "swoft/websocket-server": "~2.0.0"
+    "swoft/db": "2.0.7",
+    "swoft/i18n": "2.0.7",
+    "swoft/view": "2.0.7",
+    "swoft/task": "2.0.7",
+    "swoft/redis": "2.0.7",
+    "swoft/framework": "2.0.7",
+    "swoft/http-server": "2.0.7",
+    "swoft/rpc-client": "2.0.7",
+    "swoft/rpc-server": "2.0.7",
+    "swoft/websocket-server": "2.0.7"
   },
   "require-dev": {
     "swoft/swoole-ide-helper": "dev-master",
     "phpunit/phpunit": "^7.5",
-    "swoft/devtool": "~2.0.0"
+    "swoft/devtool": "2.0.7"
   },
   "autoload": {
     "psr-4": {

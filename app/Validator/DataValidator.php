@@ -52,6 +52,7 @@ class DataValidator implements ValidatorInterface
             $str .= '#' . $k . '|' . $v;
         }
         if ($_sign !== md5($str)) {
+            Log::error("sign diff: " . $_sign . ' != ' . md5($str));
             return [];
         } else {
             return $data;

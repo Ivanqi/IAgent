@@ -94,6 +94,6 @@ return [
     ],
     'processPool' => [
         'class' => \Swoft\Process\ProcessPool::class,
-        'workerNum' => 5
+        'workerNum' => env('PROCESSPOLL_WORKERNUM', 4)
     ]
 ];
