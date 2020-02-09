@@ -29,6 +29,9 @@ use LogSdk\Exception\TcpClientException;
  */
 class LogProcess implements ProcessInterface
 {
+    const MAX_NUMS = 100;
+    const INDEX_KEY = 'project_id';
+    const KEY_RECORDS = 'records';
     private static $queueName;
     private static $faileQueueName;
     private static $maxTimeout;
@@ -62,44 +65,66 @@ class LogProcess implements ProcessInterface
 
     private function logHandle(): void
     {
-        $logData = Redis::BRPOPLPUSH(self::$queueName, self::$faileQueueName, self::$maxTimeout);
-        if ($logData) {
-            CLog::info('logData- '. $logData);
-            // 接入LogSDK,把数据发往ICollector
-            try {
-                if (self::$client == NULL) {
-                    self::$client = new TcpClient(self::$receiverKey);
-                }
-                if (!self::$client->connect(self::$receiverIp, (int) self::$receiverPort)) {
-                   throw new TcpClientException('连接失败');
-                }
-                $ret = self::$client->send($this->dataHandle($logData));
-                if (!$ret) {
-                    throw new TcpClientException('数据发送失败');
-                }
-                $msg = self::$client->recv(1024);
-                if ($msg['code'] == self::$successTag) {
-                    Redis::lrem(self::$faileQueueName, $logData);
-                } else {
-                    CLog::error($msg['msg']);
-                }
-            } catch(\TcpClientException $e) {
-                CLog::error("无法发送数据:". $e->getMessage());
+        try {
+            $len = Redis::LLEN(self::$queueName);
+            if ($len <= 0) return;
+            else if ($len > self::MAX_NUMS){
+                $len = self::MAX_NUMS;
             }
-        }
-    }
 
-    private function dataHandle(string $data): array
-    {
-        $data = json_decode($data, true);
-        if (isset($data['sign'])) {
-            unset($data['sign']);
-        }
+            $faileArr = [];
+            $logDatatArr = [];
 
-        if (isset($data['time'])) {
-            unset($data['time']);
-        }
+            for ($i = 0; $i < $len; $i++) {
+                $logData = Redis::BRPOPLPUSH(self::$queueName, self::$faileQueueName, self::$maxTimeout);
+                if (!$logData) {
+                    continue;
+                }
+                $faileArr[] = $logData;
+                $data = json_decode($logData, true);
+                if (!isset($data[self::INDEX_KEY])) {
+                    continue;
+                }
+                $indexKey = $data[self::INDEX_KEY];
+                if (!isset($logDatatArr[$indexKey])) {
+                    $logDatatArr[$indexKey] = [];
+                    $logDatatArr[$indexKey][self::KEY_RECORDS] = $data[self::KEY_RECORDS];
+                } else {
+                    $logDatatArr[$indexKey][self::KEY_RECORDS] = array_merge($logDatatArr[$indexKey][self::KEY_RECORDS], $data[self::KEY_RECORDS]);
+                }
+                unset($data);
+                unset($logData);
+            }
+            if (empty($logDatatArr)) {
+                return;
+            }
 
-        return $data;
+            // 接入LogSDK,把数据发往ICollector
+            if (self::$client == NULL) {
+                self::$client = new TcpClient(self::$receiverKey);
+            }
+
+            if (!self::$client->connect(self::$receiverIp, (int) self::$receiverPort)) {
+                throw new TcpClientException('连接失败');
+            }
+
+            $ret = self::$client->send($logDatatArr);
+            unset($logDatatArr);
+            if (!$ret) {
+                throw new TcpClientException('数据发送失败');
+            }
+            $msg = self::$client->recv(1024);
+            if ($msg['code'] == self::$successTag) {
+                for ($i = 0; $i < $len; $i++) {
+                    Redis::lrem(self::$faileQueueName, $faileArr[$i]);
+                }
+                unset($faileArr);
+            } else {
+                throw new TcpClientException($msg['msg']);
+            }
+
+        } catch(\TcpClientException $e) {
+            CLog::error("无法发送数据:". $e->getMessage());
+        }
     }
 }
