@@ -82,9 +82,10 @@ return [
             // SwooleEvent::FINISH => bean(FinishListener::class)
         ],
         'setting' => [
-            'log_file' => alias('@runtime/swoole_tcp.log'),
+            'log_file' => alias('@runtime/logs/swoole_tcp.log'),
             // 'task_worker_num' => 1,
-            // 'task_enable_coroutine' => true
+            // 'task_enable_coroutine' => true,
+            'package_max_length' => env('PACKAGE_MAX_LENGTH', 2000000)
         ]
     ],
     /** @see \Swoft\Tcp\Protocol */

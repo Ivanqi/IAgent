@@ -19,19 +19,17 @@ use Swoole\Process\Pool;
 use Swoft\Redis\Redis;
 use LogSdk\TcpClient;
 use LogSdk\Exception\TcpClientException;
+use Swoft\Stdlib\Helper\ArrayHelper;
 
 /**
  * Class LogProcess
  *
  * @since 2.0
  *
- * @Process(workerId={0,1,2,3,4})
+ * @Process(workerId={0,1,2,3,4,5,6,7,8,9})
  */
 class LogProcess implements ProcessInterface
 {
-    const MAX_NUMS = 100;
-    const INDEX_KEY = 'project_id';
-    const KEY_RECORDS = 'records';
     private static $queueName;
     private static $faileQueueName;
     private static $maxTimeout;
@@ -41,6 +39,10 @@ class LogProcess implements ProcessInterface
     private static $receiverPort;
     private static $errorTag = 1;
     private static $successTag = 0;
+    private static $multiConsumeSwitch = false;
+    private static $multiIndexKey = '';
+    private static $multiKeyRecords = '';
+    private static $multiMaxNums = 0;
 
     public function __construct()
     {
@@ -50,6 +52,10 @@ class LogProcess implements ProcessInterface
         self::$receiverKey = config('tcp.receiver_key');
         self::$receiverIp = config('tcp.receiver_ip');
         self::$receiverPort = config('tcp.receiver_port');
+        self::$multiConsumeSwitch = config('tcp.multi_consume_switch');
+        self::$multiIndexKey = config('tcp.multi_index_key');
+        self::$multiKeyRecords = config('tcp.multi_key_records');
+        self::$multiMaxNums = config('multi_max_nums');
     }
     /**
      * @param Pool $pool
@@ -58,39 +64,79 @@ class LogProcess implements ProcessInterface
     public function run(Pool $pool, int $workerId): void
     { 
         while (true) {
-            $this->logHandle();
+            if (self::$multiConsumeSwitch) {
+                $this->multiConsumeFunc();
+            } else {
+                $this->singleConsumeFunc();
+            }
             Coroutine::sleep(0.1);
         }
     }
 
-    private function logHandle(): void
+    private function singleConsumeFunc(): void
+    {
+        try {
+            $logData = Redis::BRPOPLPUSH(self::$queueName, self::$faileQueueName, self::$maxTimeout);
+            if (!$logData) return;
+
+            // 接入LogSDK,把数据发往ICollector
+            if (self::$client == NULL) {
+                self::$client = new TcpClient(self::$receiverKey);
+            }
+
+            if (!self::$client->connect(self::$receiverIp, (int) self::$receiverPort)) {
+                throw new TcpClientException('连接失败');
+            }
+            $logDatatArr = $this->dataHandle($logData);
+            $ret = self::$client->send($logDatatArr);
+           
+            if (!$ret) {
+                throw new TcpClientException('数据发送失败');
+            }
+            $msg = self::$client->recv(1024);
+            if ($msg['code'] == self::$successTag) {
+                Redis::lrem(self::$faileQueueName, $logData);
+                unset($logDatatArr);
+                unset($logData);
+            } else {
+                throw new TcpClientException($msg['msg']);
+            }
+        } catch(\TcpClientException $e) {
+            CLog::error("无法发送数据:". $e->getMessage());
+        }
+    }
+
+    private function multiConsumeFunc() : void
     {
         try {
             $len = Redis::LLEN(self::$queueName);
             if ($len <= 0) return;
-            else if ($len > self::MAX_NUMS){
-                $len = self::MAX_NUMS;
+            else if ($len > self::$multiMaxNums){
+                $len = self::$multiMaxNums;
             }
 
             $faileArr = [];
             $logDatatArr = [];
-
-            for ($i = 0; $i < $len; $i++) {
+            for ($i = 0; $i <= $len; $i++) {
                 $logData = Redis::BRPOPLPUSH(self::$queueName, self::$faileQueueName, self::$maxTimeout);
                 if (!$logData) {
                     continue;
                 }
                 $faileArr[] = $logData;
                 $data = json_decode($logData, true);
-                if (!isset($data[self::INDEX_KEY])) {
+                if (!isset($data[self::$multiIndexKey])) {
                     continue;
                 }
-                $indexKey = $data[self::INDEX_KEY];
+                $indexKey = $data[self::$multiIndexKey];
                 if (!isset($logDatatArr[$indexKey])) {
-                    $logDatatArr[$indexKey] = [];
-                    $logDatatArr[$indexKey][self::KEY_RECORDS] = $data[self::KEY_RECORDS];
-                } else {
-                    $logDatatArr[$indexKey][self::KEY_RECORDS] = array_merge($logDatatArr[$indexKey][self::KEY_RECORDS], $data[self::KEY_RECORDS]);
+                    $logDatatArr[$indexKey] = [];       
+                }
+                foreach ($data[self::$multiKeyRecords] as $recordName => $record) {
+                    if (!isset($logDatatArr[$indexKey][$recordName])) {
+                        $logDatatArr[$indexKey][$recordName] = [];
+                    } else {
+                        $logDatatArr[$indexKey][$recordName] = ArrayHelper::merge($logDatatArr[$indexKey][$recordName], $record);
+                    }
                 }
                 unset($data);
                 unset($logData);
@@ -113,18 +159,32 @@ class LogProcess implements ProcessInterface
             if (!$ret) {
                 throw new TcpClientException('数据发送失败');
             }
+
             $msg = self::$client->recv(1024);
             if ($msg['code'] == self::$successTag) {
-                for ($i = 0; $i < $len; $i++) {
-                    Redis::lrem(self::$faileQueueName, $faileArr[$i]);
+                foreach($faileArr as $failLog) {
+                    Redis::lrem(self::$faileQueueName, $failLog);
                 }
                 unset($faileArr);
             } else {
                 throw new TcpClientException($msg['msg']);
             }
-
         } catch(\TcpClientException $e) {
             CLog::error("无法发送数据:". $e->getMessage());
         }
+    }
+
+    private function dataHandle(string $data): array
+    {
+        $data = json_decode($data, true);
+        if (isset($data['sign'])) {
+            unset($data['sign']);
+        }
+
+        if (isset($data['time'])) {
+            unset($data['time']);
+        }
+
+        return $data;
     }
 }
