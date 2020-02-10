@@ -55,7 +55,7 @@ class LogProcess implements ProcessInterface
         self::$multiConsumeSwitch = config('tcp.multi_consume_switch');
         self::$multiIndexKey = config('tcp.multi_index_key');
         self::$multiKeyRecords = config('tcp.multi_key_records');
-        self::$multiMaxNums = config('multi_max_nums');
+        self::$multiMaxNums = config('tcp.multi_max_nums');
     }
     /**
      * @param Pool $pool
@@ -78,7 +78,6 @@ class LogProcess implements ProcessInterface
         try {
             $logData = Redis::BRPOPLPUSH(self::$queueName, self::$faileQueueName, self::$maxTimeout);
             if (!$logData) return;
-
             // 接入LogSDK,把数据发往ICollector
             if (self::$client == NULL) {
                 self::$client = new TcpClient(self::$receiverKey);
@@ -110,6 +109,7 @@ class LogProcess implements ProcessInterface
     {
         try {
             $len = Redis::LLEN(self::$queueName);
+
             if ($len <= 0) return;
             else if ($len > self::$multiMaxNums){
                 $len = self::$multiMaxNums;
@@ -117,6 +117,7 @@ class LogProcess implements ProcessInterface
 
             $faileArr = [];
             $logDatatArr = [];
+            $num = 0;
             for ($i = 0; $i <= $len; $i++) {
                 $logData = Redis::BRPOPLPUSH(self::$queueName, self::$faileQueueName, self::$maxTimeout);
                 if (!$logData) {
@@ -133,8 +134,9 @@ class LogProcess implements ProcessInterface
                 }
                 foreach ($data[self::$multiKeyRecords] as $recordName => $record) {
                     if (!isset($logDatatArr[$indexKey][$recordName])) {
-                        $logDatatArr[$indexKey][$recordName] = [];
+                        $logDatatArr[$indexKey][$recordName] = $record;
                     } else {
+                        $num++;
                         $logDatatArr[$indexKey][$recordName] = ArrayHelper::merge($logDatatArr[$indexKey][$recordName], $record);
                     }
                 }
@@ -177,14 +179,9 @@ class LogProcess implements ProcessInterface
     private function dataHandle(string $data): array
     {
         $data = json_decode($data, true);
-        if (isset($data['sign'])) {
-            unset($data['sign']);
-        }
-
-        if (isset($data['time'])) {
-            unset($data['time']);
-        }
-
-        return $data;
+        $tmpData = [];
+        $tmpData[$data[self::$multiIndexKey]] = $data[self::$multiKeyRecords];
+        unset($data);
+        return $tmpData;
     }
 }
