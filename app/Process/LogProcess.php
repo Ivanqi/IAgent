@@ -26,7 +26,7 @@ use Swoft\Stdlib\Helper\ArrayHelper;
  *
  * @since 2.0
  *
- * @Process(workerId={0,1,2,3,4,5,6,7,8,9})
+ * @Process(workerId={0,1,2,3,4,5})
  */
 class LogProcess implements ProcessInterface
 {
@@ -43,6 +43,7 @@ class LogProcess implements ProcessInterface
     private static $multiIndexKey = '';
     private static $multiKeyRecords = '';
     private static $multiMaxNums = 0;
+    private static $multiMaxTimes = 0;
 
     public function __construct()
     {
@@ -56,6 +57,7 @@ class LogProcess implements ProcessInterface
         self::$multiIndexKey = config('tcp.multi_index_key');
         self::$multiKeyRecords = config('tcp.multi_key_records');
         self::$multiMaxNums = config('tcp.multi_max_nums');
+        self::$multiMaxNums = config('tcp.multi_max_times');
     }
     /**
      * @param Pool $pool
@@ -65,7 +67,9 @@ class LogProcess implements ProcessInterface
     { 
         while (true) {
             if (self::$multiConsumeSwitch) {
-                $this->multiConsumeFunc();
+                for ($i = 0; $i < self::$multiMaxNums; $i++) {
+                    $this->multiConsumeFunc();
+                }
             } else {
                 $this->singleConsumeFunc();
             }
@@ -84,13 +88,13 @@ class LogProcess implements ProcessInterface
             }
 
             if (!self::$client->connect(self::$receiverIp, (int) self::$receiverPort)) {
-                throw new TcpClientException('连接失败');
+                throw new TcpClientException(TcpClientException::CONNECT_FAILED);
             }
             $logDatatArr = $this->dataHandle($logData);
             $ret = self::$client->send($logDatatArr);
            
             if (!$ret) {
-                throw new TcpClientException('数据发送失败');
+                throw new TcpClientException(TcpClientException::DATA_SEND_FAILED);
             }
             $msg = self::$client->recv(1024);
             if ($msg['code'] == self::$successTag) {
@@ -118,7 +122,7 @@ class LogProcess implements ProcessInterface
             $faileArr = [];
             $logDatatArr = [];
             $num = 0;
-            for ($i = 0; $i <= $len; $i++) {
+            for ($i = 0; $i < $len; $i++) {
                 $logData = Redis::BRPOPLPUSH(self::$queueName, self::$faileQueueName, self::$maxTimeout);
                 if (!$logData) {
                     continue;
@@ -153,13 +157,13 @@ class LogProcess implements ProcessInterface
             }
 
             if (!self::$client->connect(self::$receiverIp, (int) self::$receiverPort)) {
-                throw new TcpClientException('连接失败');
+                throw new TcpClientException(TcpClientException::CONNECT_FAILED);
             }
 
             $ret = self::$client->send($logDatatArr);
             unset($logDatatArr);
             if (!$ret) {
-                throw new TcpClientException('数据发送失败');
+                throw new TcpClientException(TcpClientException::DATA_SEND_FAILED);
             }
 
             $msg = self::$client->recv(1024);
