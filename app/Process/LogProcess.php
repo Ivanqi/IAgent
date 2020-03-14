@@ -19,6 +19,7 @@ use Swoole\Process\Pool;
 use Swoft\Redis\Redis;
 use LogSdk\TcpClient;
 use LogSdk\Exception\TcpClientException;
+use LogSdk\Protocol\Protocol;
 use Swoft\Stdlib\Helper\ArrayHelper;
 
 /**
@@ -26,7 +27,7 @@ use Swoft\Stdlib\Helper\ArrayHelper;
  *
  * @since 2.0
  *
- * @Process(workerId={0,1,2,3,4,5})
+ * @Process(workerId={0,1,2,3,4,5,6,7,8,9})
  */
 class LogProcess implements ProcessInterface
 {
@@ -84,10 +85,10 @@ class LogProcess implements ProcessInterface
             if (!$logData) return;
             // 接入LogSDK,把数据发往ICollector
             if (self::$client == NULL) {
-                self::$client = new TcpClient(self::$receiverKey);
+                self::$client = new TcpClient(self::$receiverKey, Protocol::SWOFT_PHP_PROTOCOL);
             }
 
-            if (!self::$client->connect(self::$receiverIp, (int) self::$receiverPort)) {
+            if (!self::$client->connect(self::$receiverIp, (int) self::$receiverPort, true)) {
                 throw new TcpClientException(TcpClientException::CONNECT_FAILED);
             }
             $logDatatArr = $this->dataHandle($logData);
@@ -128,7 +129,7 @@ class LogProcess implements ProcessInterface
                     continue;
                 }
                 $faileArr[] = $logData;
-                $data = json_decode($logData, true);
+                $data = unserialize($logData);
                 if (!isset($data[self::$multiIndexKey])) {
                     continue;
                 }
@@ -153,10 +154,10 @@ class LogProcess implements ProcessInterface
 
             // 接入LogSDK,把数据发往ICollector
             if (self::$client == NULL) {
-                self::$client = new TcpClient(self::$receiverKey);
+                self::$client = new TcpClient(self::$receiverKey, Protocol::SWOFT_PHP_PROTOCOL);
             }
 
-            if (!self::$client->connect(self::$receiverIp, (int) self::$receiverPort)) {
+            if (!self::$client->connect(self::$receiverIp, (int) self::$receiverPort, true)) {
                 throw new TcpClientException(TcpClientException::CONNECT_FAILED);
             }
 
@@ -182,7 +183,7 @@ class LogProcess implements ProcessInterface
 
     private function dataHandle(string $data): array
     {
-        $data = json_decode($data, true);
+        $data = unserialize($data);
         $tmpData = [];
         $tmpData[$data[self::$multiIndexKey]] = $data[self::$multiKeyRecords];
         unset($data);

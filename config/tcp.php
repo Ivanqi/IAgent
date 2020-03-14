@@ -8,5 +8,5 @@ return [
     'multi_index_key' => 'project_id',
     'multi_key_records' => 'records',
     'multi_max_nums' => 5,   // 暂时设置为5. 这个值与icontroller的PACKAGE_MAX_LENGTH对应
-    'multi_max_times' => env('MULTI_MAX_TIMES', 10)
+    'multi_max_times' => env('MULTI_MAX_TIMES', 5)
 ];

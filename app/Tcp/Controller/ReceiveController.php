@@ -40,11 +40,12 @@ class ReceiveController
     public function receive(Request $request, Response $response): void
     {
         $data = $request->getPackage()->getData();
+        $data = unserialize(gzuncompress($data));
         $result = validate($data, \DataValidator::class, [], ['DataValidator']);
         if (!$result['ret']) {
             \return_failed($response, '校验失败，非法数据');
         } else {
-            Redis::lPush(self::$queueName, json_encode($data)); 
+            Redis::lPush(self::$queueName, serialize($data)); 
             \return_success($response);
         }
     }

@@ -90,7 +90,8 @@ return [
     ],
     /** @see \Swoft\Tcp\Protocol */
     'tcpServerProtocol' => [
-        'type' => \Swoft\Tcp\Packer\JsonPacker::TYPE,
+        // 'type' => \Swoft\Tcp\Packer\JsonPacker::TYPE,
+        'type' => \Swoft\Tcp\Packer\PhpPacker::TYPE,
         // 'openLengthCheck' => true,
     ],
     'processPool' => [
