@@ -7,6 +7,6 @@ return [
     'multi_consume_switch' => env('MULTI_CONSUME_SWITCH', false), // 默认关闭，虽然多条消费模式，消费速度块。但是问题是无法很好处理，服务端包的最大长度的问题
     'multi_index_key' => 'project_id',
     'multi_key_records' => 'records',
-    'multi_max_nums' => 5,   // 暂时设置为5. 这个值与icontroller的PACKAGE_MAX_LENGTH对应
+    'multi_max_nums' => env('MULTI_MAX_NUMS', 5),   // 暂时设置为5. 这个值与icontroller的PACKAGE_MAX_LENGTH对应
     'multi_max_times' => env('MULTI_MAX_TIMES', 5)
 ];
