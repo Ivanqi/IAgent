@@ -90,7 +90,7 @@ class  LogProcessRepositories {
                     continue;
                 }
                 $faileArr[] = $logData;
-                $data = unserialize($logData);
+                $data = unserialize(gzuncompress(unserialize($logData)));
                 if (!isset($data[self::$multiIndexKey])) {
                     continue;
                 }
@@ -144,7 +144,7 @@ class  LogProcessRepositories {
 
     private function dataHandle(string $data): array
     {
-        $data = unserialize($data);
+        $data = unserialize(gzuncompress(unserialize($logData)));
         $tmpData = [];
         $tmpData[$data[self::$multiIndexKey]] = $data[self::$multiKeyRecords];
         unset($data);

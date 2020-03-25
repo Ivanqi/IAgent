@@ -45,7 +45,7 @@ class ReceiveController
         if (!$result['ret']) {
             \return_failed($response, '校验失败，非法数据');
         } else {
-            Redis::lPush(self::$queueName, serialize($data)); 
+            Redis::lPush(self::$queueName, serialize(gzcompress(serialize($data)))); 
             \return_success($response);
         }
     }
