@@ -14,7 +14,7 @@ use App\ProcessRepositories\LogProcessRepositories;
  *
  * @since 2.0
  *
- * @Process(workerId={0,1,2,3,4,5,6,7,8,9})
+ * @Process(workerId={0,1,2,3,4,5,6,7})
  */
 class LogProcess implements ProcessInterface
 {
